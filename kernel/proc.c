@@ -6,6 +6,13 @@
 #include "proc.h"
 #include "defs.h"
 
+extern int scheduler_mode; 
+// 0 = Round-Robin, 1 = Lottery
+int scheduler_mode = 0;
+
+extern int random(int max);
+void settickets(int n);
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -124,6 +131,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+p->tickets = 10; // Default tickets
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -441,44 +449,80 @@ wait(uint64 addr)
 //  - swtch to start running that process.
 //  - eventually that process transfers control
 //    via swtch back to the scheduler.
+extern int scheduler_mode;  // declared at top of proc.c
+
 void
 scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-
   c->proc = 0;
-  for(;;){
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting.
+
+  for (;;) {
     intr_on();
 
-    int found = 0;
-    for(p = proc; p < &proc[NPROC]; p++) {
-      acquire(&p->lock);
-      if(p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
+    if (scheduler_mode == 1) {
+      // =============================
+      // 🟢 LOTTERY SCHEDULER
+      // =============================
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
-        c->proc = 0;
-        found = 1;
+      int total_tickets = 0;
+
+      // First pass: count total tickets
+      for (p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if (p->state == RUNNABLE) {
+          total_tickets += p->tickets;
+        }
+        release(&p->lock);
       }
-      release(&p->lock);
-    }
-    if(found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
-      intr_on();
-      asm volatile("wfi");
+
+      if (total_tickets == 0)
+        continue;
+
+      int winning_ticket = random(total_tickets);
+      int current_ticket_sum = 0;
+
+      // Second pass: pick the winner
+      for (p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if (p->state == RUNNABLE) {
+          current_ticket_sum += p->tickets;
+          if (current_ticket_sum > winning_ticket) {
+            // Run this process
+            p->state = RUNNING;
+            c->proc = p;
+            swtch(&c->context, &p->context);
+            c->proc = 0;
+            release(&p->lock);
+            break;
+          }
+        }
+        release(&p->lock);
+      }
+
+    } else {
+      // =============================
+      // 🔵 ROUND-ROBIN SCHEDULER
+      // =============================
+
+      for (p = proc; p < &proc[NPROC]; p++) {
+        acquire(&p->lock);
+        if (p->state == RUNNABLE) {
+          p->state = RUNNING;
+          c->proc = p;
+          swtch(&c->context, &p->context);
+          c->proc = 0;
+        }
+        release(&p->lock);
+      }
     }
   }
 }
+
+
+
+
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -693,3 +737,13 @@ procdump(void)
     printf("\n");
   }
 }
+
+void
+settickets(int n)
+{
+  struct proc *p = myproc();
+  acquire(&p->lock);
+  p->tickets = n;
+  release(&p->lock);
+}
+

@@ -20,3 +20,7 @@
 #define SYS_link   19
 #define SYS_mkdir  20
 #define SYS_close  21
+#define SYS_settickets 22  // choose next free number
+#define SYS_thread      23
+#define SYS_jointhread  24
+#define SYS_setsched  23

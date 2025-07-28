@@ -36,3 +36,11 @@ entry("getpid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");
+entry("thread");
+entry("jointhread");
+entry("settickets");
+entry("setsched")
+
+
+
+

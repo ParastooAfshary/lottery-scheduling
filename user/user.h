@@ -22,6 +22,7 @@ int getpid(void);
 char* sbrk(int);
 int sleep(int);
 int uptime(void);
+int settickets(int);
 
 // ulib.c
 int stat(const char*, struct stat*);
@@ -41,3 +42,7 @@ void *memcpy(void *, const void *, uint);
 // umalloc.c
 void* malloc(uint);
 void free(void*);
+
+int setsched(int mode);
+
+int strncmp(const char*, const char*, uint);

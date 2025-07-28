@@ -9,6 +9,7 @@
 #include "user/user.h"
 #include "kernel/fcntl.h"
 
+
 char *argv[] = { "sh", 0 };
 
 int
@@ -22,6 +23,17 @@ main(void)
   }
   dup(0);  // stdout
   dup(0);  // stderr
+
+  // 🟢 Ask user to choose scheduler
+  char buf[16];
+  printf("Which scheduler do you want to use? [RR / Lottery]: ");
+  read(0, buf, sizeof(buf));
+
+  if (strncmp(buf, "Lottery", 7) == 0 || strncmp(buf, "lottery", 7) == 0) {
+    setsched(1);  // Use Lottery scheduler
+  } else {
+    setsched(0);  // Use Round-Robin (default)
+  }
 
   for(;;){
     printf("init: starting sh\n");
@@ -37,18 +49,14 @@ main(void)
     }
 
     for(;;){
-      // this call to wait() returns if the shell exits,
-      // or if a parentless process exits.
       wpid = wait((int *) 0);
       if(wpid == pid){
-        // the shell exited; restart it.
         break;
       } else if(wpid < 0){
         printf("init: wait returned an error\n");
         exit(1);
-      } else {
-        // it was a parentless process; do nothing.
       }
     }
   }
 }
+

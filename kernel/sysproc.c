@@ -6,6 +6,10 @@
 #include "spinlock.h"
 #include "proc.h"
 
+
+extern int scheduler_mode;
+
+
 uint64
 sys_exit(void)
 {
@@ -90,4 +94,26 @@ sys_uptime(void)
   xticks = ticks;
   release(&tickslock);
   return xticks;
+}
+
+uint64
+sys_settickets(void)
+{
+  int n;
+  argint(0, &n);       // argint returns void in your version
+  if(n < 1)
+    return -1;
+  settickets(n);
+  return 0;
+}
+
+uint64
+sys_setsched(void)
+{
+  int mode;
+  argint(0, &mode);
+  if (mode != 0 && mode != 1)
+    return -1;
+  scheduler_mode = mode;
+  return 0;
 }
